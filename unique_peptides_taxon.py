@@ -18,23 +18,21 @@ def tryptically_digest_proteins(protein_list):
         peptides.update(matches)
     return list(peptides)
 
-def get_unique_peptides_for_taxa(peptides):
-    peptide_taxa_map = {}
-    unique_peptides = set(peptides)
-    seen_peptides = set()
-    for i in tqdm(range(0, len(peptides), 50)):
-        batch = peptides[i:i+50]
-        url = "http://rick.ugent.be/api/v2/pept2taxa.json"
-        data = {'input[]': batch}
-        response = requests.post(url, data=data)
+def get_unique_peptides_for_taxa(peptides, uniq_taxon):
+    unique_peptides = set()
+    batch_size=50
+    for i in tqdm(range(0, len(peptides), batch_size)):
+        batch = peptides[i:i+batch_size]
+        url = "http://api.unipept.ugent.be/mpa/pept2data"
+        data = {'peptides': batch, 'equate_il': True, 'missed': False}
+        response = requests.post(url, json=data)
         response.raise_for_status()
         taxa_data = response.json()
-        for item in taxa_data:
-            peptide = item['peptide']
-            if peptide in seen_peptides:
-                unique_peptides.discard(peptide)
-            seen_peptides.add(peptide)
-    return peptide_taxa_map
+        for item in taxa_data["peptides"]:
+            peptide = item["sequence"]
+            if item["lca"] == uniq_taxon:
+                unique_peptides.add(peptide)
+    return unique_peptides
 
 def main():
     if len(sys.argv) < 2:
@@ -48,7 +46,9 @@ def main():
 
     print("Total peptides: ", len(peptides))
     
-    print(get_unique_peptides_for_taxa(peptides))
+    uniques = get_unique_peptides_for_taxa(peptides, int(taxon))
+    for pep in uniques:
+        print(pep)
 
 if __name__ == "__main__":
     main()
